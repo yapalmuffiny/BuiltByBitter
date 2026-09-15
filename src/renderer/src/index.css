@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+.dark {
+  --background: 222 18% 7%;
+  --foreground: 210 20% 92%;
+  --card: 222 16% 10%;
+  --card-foreground: 210 20% 92%;
+  --popover: 222 18% 9%;
+  --popover-foreground: 210 20% 92%;
+  --primary: 24 94% 55%;
+  --primary-foreground: 20 14% 6%;
+  --secondary: 222 14% 16%;
+  --secondary-foreground: 210 20% 92%;
+  --muted: 222 14% 13%;
+  --muted-foreground: 215 14% 58%;
+  --accent: 222 14% 18%;
+  --accent-foreground: 210 20% 96%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 222 14% 17%;
+  --input: 222 14% 20%;
+  --ring: 24 94% 55%;
+  --radius: 0.7rem;
+  /* Warm accent palette */
+  --warm-yellow: 45 93% 58%;
+  --warm-orange: 24 94% 55%;
+  --warm-pink: 330 81% 62%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+  user-select: none;
+}
+
+.drag-region {
+  -webkit-app-region: drag;
+}
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* Slim, subtle scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(222 14% 22%);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(222 14% 30%);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+input,
+textarea {
+  user-select: text;
+}
+
+.text-bbb {
+  color: hsl(var(--primary));
+}
+
+/* Card drop highlight */
+.drop-active {
+  outline: 2px dashed hsl(var(--primary));
+  outline-offset: 3px;
+  background: hsl(var(--warm-orange) / 0.1);
+}

@@ -1,0 +1,24 @@
+# One-command local Postgres for BuiltByBitter.
+#   docker compose up -d
+# Uses port 5433 on the host to avoid clashing with a system Postgres on 5432.
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: builtbybitter-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: builtbybitter
+      POSTGRES_PASSWORD: builtbybitter
+      POSTGRES_DB: builtbybitter
+    ports:
+      - '5433:5432'
+    volumes:
+      - builtbybitter-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U builtbybitter -d builtbybitter']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  builtbybitter-pgdata:
