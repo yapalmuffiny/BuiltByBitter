@@ -271,3 +271,12 @@ export interface AppRuntimeInfo {
   platform: string
   version: string
 }
+
+// Status of the user-supplied BuiltByBit OAuth application credentials. The
+// client secret is never exposed to the renderer — only whether it's set and,
+// for display, the (non-secret) Client ID and where it came from.
+export interface OAuthConfigStatus {
+  configured: boolean
+  clientId: string | null
+  source: 'keystore' | 'env' | null
+}

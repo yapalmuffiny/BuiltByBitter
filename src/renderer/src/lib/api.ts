@@ -26,6 +26,12 @@ export function getRuntime(): Promise<AppRuntimeInfo> {
   return runtimePromise
 }
 
+// Replace the cached runtime after something changes it (e.g. saving OAuth
+// credentials restarts the local server and flips bbbOAuthConfigured).
+export function primeRuntime(runtime: AppRuntimeInfo): void {
+  runtimePromise = Promise.resolve(runtime)
+}
+
 export function getToken(): string | null {
   try {
     return localStorage.getItem(TOKEN_KEY)

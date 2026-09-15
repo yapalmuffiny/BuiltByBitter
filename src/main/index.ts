@@ -3,7 +3,12 @@ import { app, shell, BrowserWindow, ipcMain, nativeTheme } from 'electron'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { startServer, type RunningServer } from './server'
-import type { AppRuntimeInfo } from '@shared/types'
+import {
+  getOAuthCreds,
+  setOAuthCreds,
+  clearOAuthCreds
+} from './server/keystore'
+import type { AppRuntimeInfo, OAuthConfigStatus } from '@shared/types'
 
 let mainWindow: BrowserWindow | null = null
 let server: RunningServer | null = null
@@ -40,6 +45,25 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+}
+
+// Stop the local auth server (if running) and start a fresh one. Used after the
+// BBB OAuth credentials change so better-auth rebuilds its provider config.
+async function restartServer(): Promise<AppRuntimeInfo> {
+  await server?.stop()
+  server = await startServer()
+  return runtimeInfo()
+}
+
+function oauthConfigStatus(): OAuthConfigStatus {
+  const stored = getOAuthCreds()
+  if (stored) return { configured: true, clientId: stored.clientId, source: 'keystore' }
+  const envId = process.env.BBB_OAUTH_CLIENT_ID?.trim()
+  const envSecret = process.env.BBB_OAUTH_CLIENT_SECRET?.trim()
+  if (envId && envSecret && !envId.includes('xxxx')) {
+    return { configured: true, clientId: envId, source: 'env' }
+  }
+  return { configured: false, clientId: null, source: null }
 }
 
 function runtimeInfo(): AppRuntimeInfo {
@@ -95,6 +119,22 @@ function registerIpc(): void {
 
   ipcMain.handle('auth:startOAuth', async (_e, provider: 'builtbybit' | 'discord') => {
     return runOAuth(provider)
+  })
+
+  // ── BBB OAuth application credentials (user-supplied) ──────────────────────
+  ipcMain.handle('oauth:getConfig', (): OAuthConfigStatus => oauthConfigStatus())
+
+  ipcMain.handle(
+    'oauth:setConfig',
+    async (_e, clientId: string, clientSecret: string): Promise<AppRuntimeInfo> => {
+      setOAuthCreds(clientId, clientSecret) // throws on empty / no keychain
+      return restartServer()
+    }
+  )
+
+  ipcMain.handle('oauth:clearConfig', async (): Promise<AppRuntimeInfo> => {
+    clearOAuthCreds()
+    return restartServer()
   })
 
   ipcMain.handle('window:setTheme', (_e, theme: 'dark' | 'light' | 'system') => {

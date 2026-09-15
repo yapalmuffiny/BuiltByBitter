@@ -7,8 +7,12 @@ import {
   Link2Off,
   ShieldCheck,
   ExternalLink,
-  Server
+  Server,
+  Fingerprint,
+  Copy,
+  Check
 } from 'lucide-react'
+import type { OAuthConfigStatus } from '@shared/types'
 import { useAuth } from '@/lib/auth-context'
 import { useData } from '@/lib/data-context'
 import { useToast } from '@/components/ui/toast'
@@ -21,7 +25,7 @@ import { Badge } from '@/components/ui/badge'
 import { formatDate } from '@/lib/utils'
 
 export function Settings(): React.JSX.Element {
-  const { user, runtime, logout } = useAuth()
+  const { user, runtime, logout, configureOAuth, clearOAuthConfig } = useAuth()
   const { connection, connect, disconnect } = useData()
   const { toast } = useToast()
   const [apiKey, setApiKey] = React.useState('')
@@ -114,6 +118,9 @@ export function Settings(): React.JSX.Element {
         </CardContent>
       </Card>
 
+      {/* BuiltByBit OAuth application */}
+      <OAuthCard />
+
       {/* Account */}
       <Card className="mb-4">
         <CardHeader>
@@ -163,6 +170,176 @@ export function Settings(): React.JSX.Element {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+// View / change / remove the user-supplied BuiltByBit OAuth application. The
+// secret is write-only from the renderer's perspective — only its presence and
+// the Client ID come back from the main process.
+function OAuthCard(): React.JSX.Element {
+  const { runtime, configureOAuth, clearOAuthConfig } = useAuth()
+  const { toast } = useToast()
+  const [status, setStatus] = React.useState<OAuthConfigStatus | null>(null)
+  const [clientId, setClientId] = React.useState('')
+  const [clientSecret, setClientSecret] = React.useState('')
+  const [saving, setSaving] = React.useState(false)
+  const [copied, setCopied] = React.useState(false)
+
+  const refreshStatus = React.useCallback(async () => {
+    try {
+      setStatus(await window.api.getOAuthConfig())
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  React.useEffect(() => {
+    void refreshStatus()
+  }, [refreshStatus])
+
+  const configured = status?.configured ?? runtime?.bbbOAuthConfigured ?? false
+  const redirectUri = `http://localhost:${runtime?.authPort ?? 8788}/api/auth/callback/builtbybit`
+
+  const copyRedirect = async (): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(redirectUri)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const save = async (): Promise<void> => {
+    if (!clientId.trim() || !clientSecret.trim()) return
+    setSaving(true)
+    try {
+      await configureOAuth(clientId.trim(), clientSecret.trim())
+      setClientId('')
+      setClientSecret('')
+      await refreshStatus()
+      toast({ variant: 'success', title: 'OAuth updated', description: 'Credentials saved.' })
+    } catch (err) {
+      toast({
+        variant: 'error',
+        title: 'Could not save credentials',
+        description: err instanceof Error ? err.message : 'Unknown error'
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const remove = async (): Promise<void> => {
+    try {
+      await clearOAuthConfig()
+      await refreshStatus()
+      toast({ variant: 'success', title: 'OAuth removed', description: 'Credentials cleared.' })
+    } catch (err) {
+      toast({
+        variant: 'error',
+        title: 'Could not remove credentials',
+        description: err instanceof Error ? err.message : 'Unknown error'
+      })
+    }
+  }
+
+  return (
+    <Card className="mb-4">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Fingerprint className="h-4 w-4" /> BuiltByBit OAuth application
+        </CardTitle>
+        <CardDescription>
+          The OAuth app used to sign you in. Register your own on BuiltByBit and paste its
+          credentials here — they're stored encrypted in the macOS Keychain.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {configured ? (
+          <div className="flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">Configured</span>
+                <Badge variant="success">
+                  <CheckCircle2 className="h-3 w-3" /> Active
+                </Badge>
+                {status?.source === 'env' ? (
+                  <span className="text-xs text-muted-foreground">from .env</span>
+                ) : null}
+              </div>
+              {status?.clientId ? (
+                <div className="truncate text-xs text-muted-foreground">{status.clientId}</div>
+              ) : null}
+            </div>
+            {status?.source === 'keystore' ? (
+              <Button variant="outline" size="sm" onClick={() => void remove()}>
+                <Link2Off className="h-3.5 w-3.5" />
+                Remove
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="rounded-lg border border-border bg-background/40 p-2.5">
+          <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            Redirect URI to register
+          </div>
+          <div className="flex items-center gap-2">
+            <code className="min-w-0 flex-1 truncate text-xs">{redirectUri}</code>
+            <button
+              onClick={() => void copyRedirect()}
+              className="flex shrink-0 items-center gap-1 rounded-md border border-border px-1.5 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+              title="Copy redirect URI"
+            >
+              {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2.5">
+          <div>
+            <Label htmlFor="oauthClientId">{configured ? 'Replace Client ID' : 'Client ID'}</Label>
+            <Input
+              id="oauthClientId"
+              className="mt-1.5"
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+              placeholder="client-…"
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </div>
+          <div>
+            <Label htmlFor="oauthClientSecret">Client Secret</Label>
+            <div className="mt-1.5 flex gap-2">
+              <Input
+                id="oauthClientSecret"
+                type="password"
+                value={clientSecret}
+                onChange={(e) => setClientSecret(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && void save()}
+                placeholder="secret-…"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <Button onClick={() => void save()} disabled={!clientId.trim() || !clientSecret.trim() || saving}>
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                Save
+              </Button>
+            </div>
+          </div>
+          <button
+            onClick={() => window.open('https://builtbybit.com/account/external', '_blank')}
+            className="flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            <ExternalLink className="h-3 w-3" />
+            Register a BuiltByBit OAuth application
+          </button>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 

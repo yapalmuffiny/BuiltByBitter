@@ -1,7 +1,9 @@
 import * as React from 'react'
-import { Loader2, Package, ShieldCheck } from 'lucide-react'
+import { Loader2, Package, ShieldCheck, ExternalLink, KeyRound, Copy, Check } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/toast'
 
 function DiscordGlyph(): React.JSX.Element {
@@ -13,7 +15,7 @@ function DiscordGlyph(): React.JSX.Element {
 }
 
 export function Login(): React.JSX.Element {
-  const { runtime, loginWith, signingIn } = useAuth()
+  const { runtime, loginWith, signingIn, configureOAuth } = useAuth()
   const { toast } = useToast()
   const [provider, setProvider] = React.useState<'builtbybit' | 'discord' | null>(null)
 
@@ -48,48 +50,179 @@ export function Login(): React.JSX.Element {
           </p>
         </div>
 
-        <div className="flex flex-col gap-3">
-          <Button
-            size="lg"
-            className="w-full"
-            disabled={!bbbOn || signingIn}
-            onClick={() => handle('builtbybit')}
-          >
-            {provider === 'builtbybit' ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Package className="h-4 w-4" />
-            )}
-            Login with BuiltByBit
-          </Button>
+        {bbbOn ? (
+          <>
+            <div className="flex flex-col gap-3">
+              <Button
+                size="lg"
+                className="w-full"
+                disabled={signingIn}
+                onClick={() => handle('builtbybit')}
+              >
+                {provider === 'builtbybit' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Package className="h-4 w-4" />
+                )}
+                Login with BuiltByBit
+              </Button>
 
-          {discordOn ? (
-            <Button
-              size="lg"
-              variant="secondary"
-              className="w-full"
-              disabled={signingIn}
-              onClick={() => handle('discord')}
-            >
-              {provider === 'discord' ? <Loader2 className="h-4 w-4 animate-spin" /> : <DiscordGlyph />}
-              Continue with Discord
-            </Button>
-          ) : null}
-        </div>
+              {discordOn ? (
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  className="w-full"
+                  disabled={signingIn}
+                  onClick={() => handle('discord')}
+                >
+                  {provider === 'discord' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <DiscordGlyph />
+                  )}
+                  Continue with Discord
+                </Button>
+              ) : null}
+            </div>
 
-        {!bbbOn ? (
-          <p className="mt-5 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300/90">
-            BuiltByBit OAuth isn't configured. Add <code className="text-amber-200">BBB_OAUTH_CLIENT_ID</code>{' '}
-            and <code className="text-amber-200">BBB_OAUTH_CLIENT_SECRET</code> to your <code>.env</code>,
-            then restart.
-          </p>
+            <div className="mt-6 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Sign-in happens in a secure window. Your API key is added afterwards.
+            </div>
+          </>
         ) : (
-          <div className="mt-6 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            Sign-in happens in a secure window. Your API key is added afterwards.
-          </div>
+          <OAuthSetup
+            authPort={runtime?.authPort ?? 8788}
+            onSave={configureOAuth}
+          />
         )}
       </div>
+    </div>
+  )
+}
+
+// Shown when no BuiltByBit OAuth application is configured yet. Each user of this
+// public app registers their own BBB OAuth app and pastes its credentials here;
+// they're stored encrypted in the OS keychain by the main process.
+function OAuthSetup({
+  authPort,
+  onSave
+}: {
+  authPort: number
+  onSave: (clientId: string, clientSecret: string) => Promise<void>
+}): React.JSX.Element {
+  const { toast } = useToast()
+  const [clientId, setClientId] = React.useState('')
+  const [clientSecret, setClientSecret] = React.useState('')
+  const [saving, setSaving] = React.useState(false)
+  const [copied, setCopied] = React.useState(false)
+
+  const redirectUri = `http://localhost:${authPort}/api/auth/callback/builtbybit`
+
+  const copyRedirect = async (): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(redirectUri)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      /* clipboard unavailable */
+    }
+  }
+
+  const save = async (): Promise<void> => {
+    if (!clientId.trim() || !clientSecret.trim()) return
+    setSaving(true)
+    try {
+      await onSave(clientId.trim(), clientSecret.trim())
+      toast({
+        variant: 'success',
+        title: 'OAuth configured',
+        description: 'You can now sign in with BuiltByBit.'
+      })
+    } catch (err) {
+      toast({
+        variant: 'error',
+        title: 'Could not save credentials',
+        description: err instanceof Error ? err.message : 'Unknown error'
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-card/50 p-4">
+      <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+        <KeyRound className="h-4 w-4 text-primary" />
+        Connect your BuiltByBit OAuth app
+      </div>
+      <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
+        This app uses your own BuiltByBit OAuth application to sign you in. Register one on
+        BuiltByBit, add the redirect URI below, then paste the Client ID and Secret here. They're
+        stored encrypted in your macOS Keychain and never leave your machine.
+      </p>
+
+      <div className="mb-3 rounded-lg border border-border bg-background/60 p-2.5">
+        <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          Redirect URI to register
+        </div>
+        <div className="flex items-center gap-2">
+          <code className="min-w-0 flex-1 truncate text-xs text-foreground">{redirectUri}</code>
+          <button
+            onClick={() => void copyRedirect()}
+            className="flex shrink-0 items-center gap-1 rounded-md border border-border px-1.5 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+            title="Copy redirect URI"
+          >
+            {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+            {copied ? 'Copied' : 'Copy'}
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2.5">
+        <div>
+          <Label htmlFor="clientId">Client ID</Label>
+          <Input
+            id="clientId"
+            className="mt-1.5"
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            placeholder="client-…"
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
+        <div>
+          <Label htmlFor="clientSecret">Client Secret</Label>
+          <Input
+            id="clientSecret"
+            className="mt-1.5"
+            type="password"
+            value={clientSecret}
+            onChange={(e) => setClientSecret(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && void save()}
+            placeholder="secret-…"
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
+        <Button
+          className="mt-1 w-full"
+          disabled={!clientId.trim() || !clientSecret.trim() || saving}
+          onClick={() => void save()}
+        >
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+          Save & enable sign-in
+        </Button>
+      </div>
+
+      <button
+        onClick={() => window.open('https://builtbybit.com/account/external', '_blank')}
+        className="mt-3 flex items-center gap-1 text-xs text-primary hover:underline"
+      >
+        <ExternalLink className="h-3 w-3" />
+        Register a BuiltByBit OAuth application
+      </button>
     </div>
   )
 }

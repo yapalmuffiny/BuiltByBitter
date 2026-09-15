@@ -456,6 +456,9 @@ h1{font-size:17px;margin:0 0 6px}p{font-size:13px;color:#9aa4b2;margin:0}</style
     stop: () =>
       new Promise<void>((resolve) => {
         server.close(() => resolve())
+        // Drop idle keep-alive sockets so a restart (e.g. after OAuth creds
+        // change) doesn't stall waiting for them to time out on their own.
+        ;(server as unknown as { closeAllConnections?: () => void }).closeAllConnections?.()
       })
   }
 }

@@ -41,3 +41,54 @@ export function clearApiKey(): void {
   const path = keyFilePath()
   if (existsSync(path)) rmSync(path)
 }
+
+// ── BuiltByBit OAuth application credentials ─────────────────────────────────
+// The login OAuth app's Client ID + Secret are user-supplied (this is a public
+// app — each user registers their own BBB OAuth application). They're stored
+// encrypted via the OS keychain, never written to Postgres, and the secret is
+// never returned to the renderer.
+
+export interface StoredOAuthCreds {
+  clientId: string
+  clientSecret: string
+}
+
+function oauthFilePath(): string {
+  return join(app.getPath('userData'), 'secrets', 'bbb-oauth.bin')
+}
+
+export function hasOAuthCreds(): boolean {
+  return existsSync(oauthFilePath())
+}
+
+export function setOAuthCreds(clientId: string, clientSecret: string): void {
+  const id = clientId.trim()
+  const secret = clientSecret.trim()
+  if (!id || !secret) throw new Error('Client ID and Client Secret are both required')
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new Error('OS encryption (Keychain) is unavailable; cannot store OAuth credentials securely.')
+  }
+  const encrypted = safeStorage.encryptString(JSON.stringify({ clientId: id, clientSecret: secret }))
+  const path = oauthFilePath()
+  mkdirSync(dirname(path), { recursive: true })
+  writeFileSync(path, encrypted)
+}
+
+export function getOAuthCreds(): StoredOAuthCreds | null {
+  const path = oauthFilePath()
+  if (!existsSync(path)) return null
+  try {
+    const parsed = JSON.parse(safeStorage.decryptString(readFileSync(path))) as Partial<StoredOAuthCreds>
+    if (parsed.clientId && parsed.clientSecret) {
+      return { clientId: parsed.clientId, clientSecret: parsed.clientSecret }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+export function clearOAuthCreds(): void {
+  const path = oauthFilePath()
+  if (existsSync(path)) rmSync(path)
+}

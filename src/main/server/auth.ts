@@ -3,6 +3,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { bearer, genericOAuth } from 'better-auth/plugins'
 import { db } from '../db'
 import { schema } from '../db/schema'
+import { getOAuthCreds } from './keystore'
 
 export interface AuthConfigFlags {
   bbbConfigured: boolean
@@ -58,11 +59,24 @@ async function bbbGetUserInfo(tokens: { accessToken?: string }): Promise<OAuthUs
 }
 
 export function createAuth() {
-  const bbbClientId = process.env.BBB_OAUTH_CLIENT_ID?.trim()
-  const bbbClientSecret = process.env.BBB_OAUTH_CLIENT_SECRET?.trim()
-  const bbbConfigured = Boolean(
-    bbbClientId && bbbClientSecret && !bbbClientId.includes('xxxx')
-  )
+  // Prefer user-supplied credentials from the keychain (public-app flow); fall
+  // back to .env for local development. The `.env.example` placeholder contains
+  // "xxxx", so env creds are only trusted when they've actually been filled in.
+  const stored = getOAuthCreds()
+  let bbbClientId: string | undefined
+  let bbbClientSecret: string | undefined
+  if (stored) {
+    bbbClientId = stored.clientId.trim()
+    bbbClientSecret = stored.clientSecret.trim()
+  } else {
+    const envId = process.env.BBB_OAUTH_CLIENT_ID?.trim()
+    const envSecret = process.env.BBB_OAUTH_CLIENT_SECRET?.trim()
+    if (envId && envSecret && !envId.includes('xxxx')) {
+      bbbClientId = envId
+      bbbClientSecret = envSecret
+    }
+  }
+  const bbbConfigured = Boolean(bbbClientId && bbbClientSecret)
 
   const discordClientId = process.env.DISCORD_CLIENT_ID?.trim()
   const discordClientSecret = process.env.DISCORD_CLIENT_SECRET?.trim()

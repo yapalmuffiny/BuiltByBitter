@@ -1,6 +1,6 @@
 import * as React from 'react'
 import type { AppRuntimeInfo, SessionUser } from '@shared/types'
-import { getRuntime, getSessionUser, setToken, signOut } from './api'
+import { getRuntime, getSessionUser, primeRuntime, setToken, signOut } from './api'
 
 interface AuthState {
   user: SessionUser | null
@@ -9,6 +9,8 @@ interface AuthState {
   signingIn: boolean
   loginWith: (provider: 'builtbybit' | 'discord') => Promise<void>
   logout: () => Promise<void>
+  configureOAuth: (clientId: string, clientSecret: string) => Promise<void>
+  clearOAuthConfig: () => Promise<void>
 }
 
 const AuthContext = React.createContext<AuthState | null>(null)
@@ -60,6 +62,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     setUser(null)
   }, [])
 
-  const value: AuthState = { user, runtime, loading, signingIn, loginWith, logout }
+  const configureOAuth = React.useCallback(async (clientId: string, clientSecret: string) => {
+    const rt = await window.api.setOAuthConfig(clientId, clientSecret)
+    primeRuntime(rt)
+    setRuntime(rt)
+  }, [])
+
+  const clearOAuthConfig = React.useCallback(async () => {
+    const rt = await window.api.clearOAuthConfig()
+    primeRuntime(rt)
+    setRuntime(rt)
+  }, [])
+
+  const value: AuthState = {
+    user,
+    runtime,
+    loading,
+    signingIn,
+    loginWith,
+    logout,
+    configureOAuth,
+    clearOAuthConfig
+  }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
