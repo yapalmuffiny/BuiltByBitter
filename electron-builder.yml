@@ -9,6 +9,11 @@ files:
   - '!**/*.map'
 asarUnpack:
   - resources/**
+  - '**/node_modules/better-sqlite3/**'
+extraResources:
+  # Drizzle migrations, applied to the embedded SQLite DB at first launch.
+  - from: drizzle
+    to: drizzle
 afterPack: scripts/afterPack.cjs
 mac:
   icon: build/icon.icns

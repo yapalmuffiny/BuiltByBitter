@@ -124,7 +124,7 @@ export function createAuth() {
       'http://127.0.0.1:5173',
       'app://.'
     ],
-    database: drizzleAdapter(db, { provider: 'pg', schema }),
+    database: drizzleAdapter(db, { provider: 'sqlite', schema }),
     emailAndPassword: { enabled: false },
     socialProviders: discordConfigured
       ? { discord: { clientId: discordClientId!, clientSecret: discordClientSecret! } }

@@ -1,5 +1,6 @@
 // Loaded as the very FIRST import in the main process so that process.env is
-// populated before any module (notably ../db) reads DATABASE_URL at import time.
+// populated (AUTH_PORT, BETTER_AUTH_SECRET, optional dev OAuth creds) before any
+// module reads it. The database is embedded SQLite and needs no env config.
 import dotenv from 'dotenv'
 import { join } from 'node:path'
 import { existsSync } from 'node:fs'

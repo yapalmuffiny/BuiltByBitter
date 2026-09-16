@@ -1,37 +1,32 @@
-import {
-  pgTable,
-  text,
-  boolean,
-  timestamp,
-  integer,
-  bigint,
-  jsonb
-} from 'drizzle-orm/pg-core'
+import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
+
+// Embedded SQLite (better-sqlite3). Dates are stored as integer epoch-ms, booleans
+// as 0/1, and JSON columns as TEXT — drizzle converts these transparently.
 
 // ── BetterAuth core tables (field/column names must match BetterAuth) ────────
 
-export const user = pgTable('user', {
+export const user = sqliteTable('user', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
-  emailVerified: boolean('emailVerified')
+  emailVerified: integer('emailVerified', { mode: 'boolean' })
     .$defaultFn(() => false)
     .notNull(),
   image: text('image'),
-  createdAt: timestamp('createdAt')
+  createdAt: integer('createdAt', { mode: 'timestamp_ms' })
     .$defaultFn(() => new Date())
     .notNull(),
-  updatedAt: timestamp('updatedAt')
+  updatedAt: integer('updatedAt', { mode: 'timestamp_ms' })
     .$defaultFn(() => new Date())
     .notNull()
 })
 
-export const session = pgTable('session', {
+export const session = sqliteTable('session', {
   id: text('id').primaryKey(),
-  expiresAt: timestamp('expiresAt').notNull(),
+  expiresAt: integer('expiresAt', { mode: 'timestamp_ms' }).notNull(),
   token: text('token').notNull().unique(),
-  createdAt: timestamp('createdAt').notNull(),
-  updatedAt: timestamp('updatedAt').notNull(),
+  createdAt: integer('createdAt', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updatedAt', { mode: 'timestamp_ms' }).notNull(),
   ipAddress: text('ipAddress'),
   userAgent: text('userAgent'),
   userId: text('userId')
@@ -39,7 +34,7 @@ export const session = pgTable('session', {
     .references(() => user.id, { onDelete: 'cascade' })
 })
 
-export const account = pgTable('account', {
+export const account = sqliteTable('account', {
   id: text('id').primaryKey(),
   accountId: text('accountId').notNull(),
   providerId: text('providerId').notNull(),
@@ -49,26 +44,26 @@ export const account = pgTable('account', {
   accessToken: text('accessToken'),
   refreshToken: text('refreshToken'),
   idToken: text('idToken'),
-  accessTokenExpiresAt: timestamp('accessTokenExpiresAt'),
-  refreshTokenExpiresAt: timestamp('refreshTokenExpiresAt'),
+  accessTokenExpiresAt: integer('accessTokenExpiresAt', { mode: 'timestamp_ms' }),
+  refreshTokenExpiresAt: integer('refreshTokenExpiresAt', { mode: 'timestamp_ms' }),
   scope: text('scope'),
   password: text('password'),
-  createdAt: timestamp('createdAt').notNull(),
-  updatedAt: timestamp('updatedAt').notNull()
+  createdAt: integer('createdAt', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updatedAt', { mode: 'timestamp_ms' }).notNull()
 })
 
-export const verification = pgTable('verification', {
+export const verification = sqliteTable('verification', {
   id: text('id').primaryKey(),
   identifier: text('identifier').notNull(),
   value: text('value').notNull(),
-  expiresAt: timestamp('expiresAt').notNull(),
-  createdAt: timestamp('createdAt').$defaultFn(() => new Date()),
-  updatedAt: timestamp('updatedAt').$defaultFn(() => new Date())
+  expiresAt: integer('expiresAt', { mode: 'timestamp_ms' }).notNull(),
+  createdAt: integer('createdAt', { mode: 'timestamp_ms' }).$defaultFn(() => new Date()),
+  updatedAt: integer('updatedAt', { mode: 'timestamp_ms' }).$defaultFn(() => new Date())
 })
 
 // ── App tables ───────────────────────────────────────────────────────────────
 
-export const bbbConnection = pgTable('bbb_connection', {
+export const bbbConnection = sqliteTable('bbb_connection', {
   id: text('id').primaryKey(),
   userId: text('user_id')
     .notNull()
@@ -76,25 +71,25 @@ export const bbbConnection = pgTable('bbb_connection', {
   memberId: integer('member_id'),
   username: text('username'),
   avatarUrl: text('avatar_url'),
-  keyValid: boolean('key_valid').notNull().default(false),
-  connectedAt: timestamp('connected_at')
+  keyValid: integer('key_valid', { mode: 'boolean' }).notNull().default(false),
+  connectedAt: integer('connected_at', { mode: 'timestamp_ms' })
     .$defaultFn(() => new Date())
     .notNull()
 })
 
-export const changelogTemplate = pgTable('changelog_template', {
+export const changelogTemplate = sqliteTable('changelog_template', {
   id: text('id').primaryKey(),
   userId: text('user_id')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
-  fields: jsonb('fields').notNull(),
-  updatedAt: timestamp('updated_at')
+  fields: text('fields', { mode: 'json' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
     .$defaultFn(() => new Date())
     .notNull()
 })
 
-export const updatePost = pgTable('update_post', {
+export const updatePost = sqliteTable('update_post', {
   id: text('id').primaryKey(),
   userId: text('user_id')
     .notNull()
@@ -105,11 +100,11 @@ export const updatePost = pgTable('update_post', {
   versionName: text('version_name').notNull(),
   message: text('message'),
   fileName: text('file_name').notNull(),
-  fileSize: bigint('file_size', { mode: 'number' }).notNull(),
+  fileSize: integer('file_size').notNull(),
   status: text('status').notNull(), // 'success' | 'error' | 'dry-run'
   error: text('error'),
-  dryRun: boolean('dry_run').notNull().default(false),
-  postedAt: timestamp('posted_at')
+  dryRun: integer('dry_run', { mode: 'boolean' }).notNull().default(false),
+  postedAt: integer('posted_at', { mode: 'timestamp_ms' })
     .$defaultFn(() => new Date())
     .notNull()
 })

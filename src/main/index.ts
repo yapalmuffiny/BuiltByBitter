@@ -3,6 +3,7 @@ import { app, shell, BrowserWindow, ipcMain, nativeTheme } from 'electron'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { startServer, type RunningServer } from './server'
+import { initDatabase } from './db'
 import {
   getOAuthCreds,
   setOAuthCreds,
@@ -145,6 +146,14 @@ function registerIpc(): void {
 app.whenReady().then(async () => {
   nativeTheme.themeSource = 'dark'
   app.setName('BuiltByBitter')
+
+  // Open + migrate the embedded SQLite DB before the server (and better-auth)
+  // touch it. Needs to run after app-ready so userData resolves correctly.
+  try {
+    initDatabase()
+  } catch (err) {
+    console.error('Failed to initialize database:', err)
+  }
 
   try {
     server = await startServer()
