@@ -82,7 +82,10 @@ export function createAuth() {
   const discordClientSecret = process.env.DISCORD_CLIENT_SECRET?.trim()
   const discordConfigured = Boolean(discordClientId && discordClientSecret)
 
-  const bbbScopes = (process.env.BBB_OAUTH_SCOPES ?? '')
+  // BBB rejects the authorize request ("must request at least one scope") unless
+  // a scope is sent, and `members.self` is the ONLY OAuth2-allowed scope, so it's
+  // the default. (The env var only exists to override it in dev.)
+  const bbbScopes = (process.env.BBB_OAUTH_SCOPES ?? 'members.self')
     .split(/[ ,]+/)
     .map((s) => s.trim())
     .filter(Boolean)
@@ -106,7 +109,7 @@ export function createAuth() {
               headers.authorization = `Basic ${Buffer.from(raw).toString('base64')}`
             }
           },
-          scopes: bbbScopes.length ? bbbScopes : undefined,
+          scopes: bbbScopes.length ? bbbScopes : ['members.self'],
           pkce: false,
           overrideUserInfo: true,
           getUserInfo: bbbGetUserInfo
