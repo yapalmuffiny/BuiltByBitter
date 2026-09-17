@@ -56,4 +56,3 @@ npm run build
    - Run `npm run typecheck` before committing changes.
    - Write clear, imperative commit messages.
    - Keep commits local; do not push without approval.
-   - Do not add bot co-author trailers (`Co-authored-by: ...`).
