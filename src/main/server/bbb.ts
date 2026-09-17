@@ -40,6 +40,8 @@ export class BBBError extends Error {
   }
 }
 
+const BBB_BASE = 'https://api.builtbybit.com'
+
 function createWrapper(apiKey: string): InstanceType<typeof Wrapper> {
   const wrapper = new Wrapper()
   const token = new Token(TokenType.PRIVATE, apiKey)
@@ -66,6 +68,7 @@ async function execute<T>(fn: () => Promise<T>): Promise<T> {
     const res = await fn()
     return camelizeDeep<T>(res)
   } catch (err: unknown) {
+    if (err instanceof BBBError) throw err
     if (err && typeof err === 'object') {
       const response = (err as { response?: { status?: number; data?: { error?: { message?: string } } } }).response
       if (response) {
@@ -143,7 +146,7 @@ export const bbb = {
   async getResources(apiKey: string, resourceIds?: number[]): Promise<BBBResource[]> {
     return execute(async () => {
       const wrapper = createWrapper(apiKey)
-      const res = (await wrapper.http().get(`/v2/resources/creator/resources${idsParam(resourceIds)}`)) as
+      const res = (await wrapper.http().get(`${BBB_BASE}/v2/resources/creator/resources${idsParam(resourceIds)}`)) as
         | ResourcesPayload
         | BBBResource[]
       return Array.isArray(res) ? res : (res?.resources ?? [])
@@ -153,7 +156,7 @@ export const bbb = {
   async getAddons(apiKey: string, resourceIds?: number[]): Promise<BBBAddon[]> {
     return execute(async () => {
       const wrapper = createWrapper(apiKey)
-      const res = (await wrapper.http().get(`/v2/resources/creator/addons${idsParam(resourceIds)}`)) as
+      const res = (await wrapper.http().get(`${BBB_BASE}/v2/resources/creator/addons${idsParam(resourceIds)}`)) as
         | AddonsPayload
         | BBBAddon[]
       return Array.isArray(res) ? res : (res?.addons ?? [])
@@ -163,7 +166,7 @@ export const bbb = {
   async getVersions(apiKey: string, resourceIds?: number[]): Promise<BBBVersion[]> {
     return execute(async () => {
       const wrapper = createWrapper(apiKey)
-      const res = (await wrapper.http().get(`/v2/resources/creator/versions${idsParam(resourceIds)}`)) as
+      const res = (await wrapper.http().get(`${BBB_BASE}/v2/resources/creator/versions${idsParam(resourceIds)}`)) as
         | VersionsPayload
         | BBBVersion[]
       return Array.isArray(res) ? res : (res?.versions ?? [])
@@ -173,7 +176,7 @@ export const bbb = {
   async getUpdates(apiKey: string, resourceIds?: number[]): Promise<BBBUpdate[]> {
     return execute(async () => {
       const wrapper = createWrapper(apiKey)
-      const res = (await wrapper.http().get(`/v2/resources/creator/updates${idsParam(resourceIds)}`)) as
+      const res = (await wrapper.http().get(`${BBB_BASE}/v2/resources/creator/updates${idsParam(resourceIds)}`)) as
         | UpdatesPayload
         | BBBUpdate[]
       return Array.isArray(res) ? res : (res?.updates ?? [])
@@ -183,7 +186,7 @@ export const bbb = {
   async getPurchases(apiKey: string, resourceIds?: number[]): Promise<BBBPurchase[]> {
     return execute(async () => {
       const wrapper = createWrapper(apiKey)
-      const res = (await wrapper.http().get(`/v2/resources/creator/purchases${idsParam(resourceIds)}`)) as
+      const res = (await wrapper.http().get(`${BBB_BASE}/v2/resources/creator/purchases${idsParam(resourceIds)}`)) as
         | PurchasesPayload
         | BBBPurchase[]
       return Array.isArray(res) ? res : (res?.purchases ?? [])
@@ -193,7 +196,7 @@ export const bbb = {
   async getLicenses(apiKey: string, resourceIds?: number[]): Promise<BBBLicense[]> {
     return execute(async () => {
       const wrapper = createWrapper(apiKey)
-      const res = (await wrapper.http().get(`/v2/resources/creator/licenses${idsParam(resourceIds)}`)) as
+      const res = (await wrapper.http().get(`${BBB_BASE}/v2/resources/creator/licenses${idsParam(resourceIds)}`)) as
         | LicensesPayload
         | BBBLicense[]
       return Array.isArray(res) ? res : (res?.licenses ?? [])
@@ -203,7 +206,7 @@ export const bbb = {
   async getReviews(apiKey: string, resourceIds?: number[]): Promise<BBBReview[]> {
     return execute(async () => {
       const wrapper = createWrapper(apiKey)
-      const res = (await wrapper.http().get(`/v2/resources/creator/reviews${idsParam(resourceIds)}`)) as
+      const res = (await wrapper.http().get(`${BBB_BASE}/v2/resources/creator/reviews${idsParam(resourceIds)}`)) as
         | ReviewsPayload
         | BBBReview[]
       return Array.isArray(res) ? res : (res?.reviews ?? [])
@@ -228,14 +231,14 @@ export const bbb = {
           message: payload.update.message
         }
       }
-      return wrapper.http().post('/v2/resources/creator/update', body)
+      return wrapper.http().post(`${BBB_BASE}/v2/resources/creator/update`, body)
     })
   },
 
   async postAddonUpdate(apiKey: string, payload: PostAddonUpdatePayload): Promise<unknown> {
     return execute(async () => {
       const wrapper = createWrapper(apiKey)
-      return wrapper.http().post('/v2/resources/creator/addons/update', {
+      return wrapper.http().post(`${BBB_BASE}/v2/resources/creator/addons/update`, {
         addon_id: payload.addonId,
         version_name: payload.versionName,
         file: { name: payload.file.name, data: payload.file.data }

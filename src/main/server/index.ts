@@ -424,6 +424,12 @@ window.__authPayload = ${payload};
     return c.json({ records })
   })
 
+  app.onError((err, c) => {
+    console.error('[server error]', err)
+    const status = err instanceof BBBError ? err.status : 500
+    return c.json({ error: err instanceof Error ? err.message : 'Internal Server Error' }, status as 500)
+  })
+
   app.route('/api', api)
 
   async function seedDefaultTemplate(uid: string, username: string): Promise<void> {
