@@ -3,7 +3,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { bearer, genericOAuth } from 'better-auth/plugins'
 import { db } from '../db'
 import { schema } from '../db/schema'
-import { getOAuthCreds } from './keystore'
+import { getOAuthCreds, getOrSetAuthSecret } from './keystore'
 
 export interface AuthConfigFlags {
   bbbConfigured: boolean
@@ -105,12 +105,14 @@ export function createAuth() {
   const auth = betterAuth({
     baseURL: serverBaseUrl(),
     basePath: '/api/auth',
-    secret: process.env.BETTER_AUTH_SECRET ?? 'dev-insecure-secret-change-me',
+    secret: getOrSetAuthSecret(),
     trustedOrigins: [
       serverBaseUrl(),
       'http://localhost:5173',
       'http://127.0.0.1:5173',
-      'app://.'
+      'app://.',
+      'file://',
+      'null'
     ],
     database: drizzleAdapter(db, { provider: 'sqlite', schema }),
     emailAndPassword: { enabled: false },

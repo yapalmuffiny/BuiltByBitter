@@ -56,7 +56,9 @@ export async function startServer(): Promise<RunningServer> {
           origin === url ||
           origin === 'http://localhost:5173' ||
           origin === 'http://127.0.0.1:5173' ||
-          origin === 'app://.'
+          origin === 'app://.' ||
+          origin === 'null' ||
+          origin.startsWith('file://')
         ) {
           return origin
         }
@@ -172,8 +174,10 @@ window.__authPayload = ${payload};
     const hasKey = hasApiKey()
     const row = await db.select().from(bbbConnection).where(eq(bbbConnection.userId, uid)).limit(1)
     const conn = row[0]
+    const keyValid = Boolean(conn?.keyValid)
     return c.json({
-      connected: Boolean(hasKey && conn?.keyValid),
+      connected: Boolean(hasKey && keyValid),
+      keyValid,
       hasKey,
       member: conn
         ? {
@@ -438,7 +442,15 @@ window.__authPayload = ${payload};
     })
   }
 
-  const server = serve({ fetch: app.fetch, port, hostname: '127.0.0.1' })
+  const server = await new Promise<ReturnType<typeof serve>>((resolve, reject) => {
+    const s = serve({ fetch: app.fetch, port, hostname: '127.0.0.1' }, () => {
+      resolve(s)
+    })
+    s.once('error', (err: NodeJS.ErrnoException) => {
+      reject(err)
+    })
+  })
+
   server.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EADDRINUSE') {
       console.error(

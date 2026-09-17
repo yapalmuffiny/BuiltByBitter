@@ -31,7 +31,7 @@ export function Resources(): React.JSX.Element {
   const { setView } = useUI()
   const [query, setQuery] = React.useState('')
 
-  const connected = connection?.connected && connection?.keyValid
+  const connected = Boolean(connection?.connected && (connection?.keyValid ?? true))
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase()

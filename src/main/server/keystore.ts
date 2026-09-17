@@ -2,12 +2,14 @@ import { app, safeStorage } from 'electron'
 import { readFileSync, writeFileSync, existsSync, rmSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 
+import { randomBytes } from 'node:crypto'
+
 function keyFilePath(): string {
   return join(app.getPath('userData'), 'secrets', 'bbb-api-key.bin')
 }
 
 export function hasApiKey(): boolean {
-  return existsSync(keyFilePath())
+  return Boolean(getApiKey())
 }
 
 export function setApiKey(plain: string): void {
@@ -48,7 +50,7 @@ function oauthFilePath(): string {
 }
 
 export function hasOAuthCreds(): boolean {
-  return existsSync(oauthFilePath())
+  return Boolean(getOAuthCreds())
 }
 
 export function setOAuthCreds(clientId: string, clientSecret: string): void {
@@ -82,3 +84,35 @@ export function clearOAuthCreds(): void {
   const path = oauthFilePath()
   if (existsSync(path)) rmSync(path)
 }
+
+function authSecretFilePath(): string {
+  return join(app.getPath('userData'), 'secrets', 'auth-secret.bin')
+}
+
+export function getOrSetAuthSecret(): string {
+  const envSecret = process.env.BETTER_AUTH_SECRET?.trim()
+  if (envSecret) return envSecret
+
+  const path = authSecretFilePath()
+  if (existsSync(path)) {
+    try {
+      const decrypted = safeStorage.decryptString(readFileSync(path))
+      if (decrypted) return decrypted
+    } catch {
+      /* regenerate if corrupted */
+    }
+  }
+
+  const generated = randomBytes(32).toString('hex')
+  if (safeStorage.isEncryptionAvailable()) {
+    try {
+      const encrypted = safeStorage.encryptString(generated)
+      mkdirSync(dirname(path), { recursive: true })
+      writeFileSync(path, encrypted)
+    } catch {
+      /* fallback to memory generated */
+    }
+  }
+  return generated
+}
+

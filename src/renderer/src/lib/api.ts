@@ -83,12 +83,21 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 export async function getSessionUser(): Promise<SessionUser | null> {
   const token = getToken()
   if (!token) return null
-  try {
-    const data = await apiFetch<{ user?: SessionUser } | null>('/api/auth/get-session')
-    return data?.user ?? null
-  } catch {
-    return null
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const data = await apiFetch<{ user?: SessionUser } | null>('/api/auth/get-session')
+      return data?.user ?? null
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        return null
+      }
+      if (attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)))
+      }
+    }
   }
+  return null
 }
 
 export async function signOut(): Promise<void> {

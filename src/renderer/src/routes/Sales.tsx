@@ -39,7 +39,7 @@ export function Sales(): React.JSX.Element {
   const [licenses, setLicenses] = React.useState<BBBLicense[] | null>(null)
   const [error, setError] = React.useState<string | null>(null)
 
-  const connected = connection?.connected && connection?.keyValid
+  const connected = Boolean(connection?.connected && (connection?.keyValid ?? true))
 
   const titleFor = React.useCallback(
     (resourceId?: number): string => {

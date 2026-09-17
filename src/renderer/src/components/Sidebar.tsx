@@ -18,7 +18,7 @@ export function Sidebar(): React.JSX.Element {
   const { connection, resources } = useData()
 
   const member = connection?.member
-  const connected = connection?.connected && connection?.keyValid
+  const connected = Boolean(connection?.connected && (connection?.keyValid ?? true))
 
   return (
     <aside className="drag-region flex w-56 shrink-0 flex-col border-r border-border bg-card/40">

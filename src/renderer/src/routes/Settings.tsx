@@ -31,7 +31,7 @@ export function Settings(): React.JSX.Element {
   const [apiKey, setApiKey] = React.useState('')
   const [connecting, setConnecting] = React.useState(false)
 
-  const connected = connection?.connected && connection?.keyValid
+  const connected = Boolean(connection?.connected && (connection?.keyValid ?? true))
   const member = connection?.member
 
   const doConnect = async (): Promise<void> => {
