@@ -15,5 +15,4 @@ const api = {
 
 export type BridgeApi = typeof api
 
-// Context isolation is always enabled for this app.
 contextBridge.exposeInMainWorld('api', api)

@@ -7,8 +7,8 @@ export interface ComposerTarget {
   kind: 'resource' | 'addon'
   resource: BBBResource
   addon?: BBBAddon
-  /** Optional file pre-attached from a drag-and-drop. */
   file?: File
+  initialAddonFiles?: Record<number, File>
 }
 
 interface UIState {

@@ -1,4 +1,4 @@
-import './load-env' // MUST be first: populates process.env before ./server -> ../db
+import './load-env'
 import { app, shell, BrowserWindow, ipcMain, nativeTheme } from 'electron'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
@@ -48,8 +48,6 @@ function createWindow(): void {
   }
 }
 
-// Stop the local auth server (if running) and start a fresh one. Used after the
-// BBB OAuth credentials change so better-auth rebuilds its provider config.
 async function restartServer(): Promise<AppRuntimeInfo> {
   await server?.stop()
   server = await startServer()
@@ -78,9 +76,6 @@ function runtimeInfo(): AppRuntimeInfo {
   }
 }
 
-// Run OAuth in the user's default system browser (so it reuses their existing
-// BuiltByBit login/cookies), then poll the local server's one-time relay for the
-// captured session token.
 function runOAuth(provider: 'builtbybit' | 'discord'): Promise<{ token: string; user: unknown }> {
   return new Promise((resolve, reject) => {
     const serverUrl = server?.url
@@ -89,7 +84,7 @@ function runOAuth(provider: 'builtbybit' | 'discord'): Promise<{ token: string; 
     const linkId = randomUUID()
     void shell.openExternal(`${serverUrl}/oauth-start?provider=${provider}&linkId=${linkId}`)
 
-    const deadline = Date.now() + 3 * 60 * 1000 // 3 minutes
+    const deadline = Date.now() + 3 * 60 * 1000
     const poll = async (): Promise<void> => {
       if (Date.now() > deadline) {
         reject(new Error('Sign-in timed out. Please try again.'))
@@ -122,13 +117,12 @@ function registerIpc(): void {
     return runOAuth(provider)
   })
 
-  // ── BBB OAuth application credentials (user-supplied) ──────────────────────
   ipcMain.handle('oauth:getConfig', (): OAuthConfigStatus => oauthConfigStatus())
 
   ipcMain.handle(
     'oauth:setConfig',
     async (_e, clientId: string, clientSecret: string): Promise<AppRuntimeInfo> => {
-      setOAuthCreds(clientId, clientSecret) // throws on empty / no keychain
+      setOAuthCreds(clientId, clientSecret)
       return restartServer()
     }
   )
@@ -147,8 +141,6 @@ app.whenReady().then(async () => {
   nativeTheme.themeSource = 'dark'
   app.setName('BuiltByBitter')
 
-  // Open + migrate the embedded SQLite DB before the server (and better-auth)
-  // touch it. Needs to run after app-ready so userData resolves correctly.
   try {
     initDatabase()
   } catch (err) {

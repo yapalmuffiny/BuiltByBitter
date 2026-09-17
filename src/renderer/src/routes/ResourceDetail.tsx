@@ -146,7 +146,6 @@ export function ResourceDetail(): React.JSX.Element | null {
               </TabsTrigger>
             </TabsList>
 
-            {/* Addons */}
             <TabsContent value="addons">
               {addons.length === 0 ? (
                 <Empty label="This resource has no addons." />
@@ -159,7 +158,6 @@ export function ResourceDetail(): React.JSX.Element | null {
               )}
             </TabsContent>
 
-            {/* Versions */}
             <TabsContent value="versions">
               {versions === null ? (
                 <Loading />
@@ -191,7 +189,6 @@ export function ResourceDetail(): React.JSX.Element | null {
               )}
             </TabsContent>
 
-            {/* Updates */}
             <TabsContent value="updates">
               {updates === null ? (
                 <Loading />
@@ -217,7 +214,6 @@ export function ResourceDetail(): React.JSX.Element | null {
               )}
             </TabsContent>
 
-            {/* Reviews */}
             <TabsContent value="reviews">
               {reviews === null ? (
                 <Loading />

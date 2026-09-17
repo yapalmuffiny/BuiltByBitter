@@ -1,13 +1,7 @@
-// Shared types across main / preload / renderer.
-// BBB shapes mirror the built_by_bit_api v2 SDK models. Nested objects that the
-// UI doesn't need are kept permissive on purpose.
-
 export interface Price {
   currency?: string
   value?: number
-  // Some endpoints spell the amount differently; keep both readable.
   amount?: number
-  // BBB provides a pre-formatted string, e.g. "$11.99".
   formatted?: string
 }
 
@@ -45,7 +39,6 @@ export interface BBBResource {
   finalPrice?: Price
   purchases?: number
   downloads?: number
-  // BBB's actual field names on the creator resources endpoint:
   purchaseCount?: number
   downloadCount?: number
   creatorId?: number
@@ -111,8 +104,6 @@ export interface BBBVersionFull {
   updateId?: number
 }
 
-// ── Member (v1) ──────────────────────────────────────────────────────────────
-
 export interface BBBMemberFull {
   memberId?: number
   username?: string
@@ -125,7 +116,6 @@ export interface BBBMemberFull {
   premium?: boolean
   supreme?: boolean
   ultimate?: boolean
-  // discord_id exceeds JS safe-integer range, so it's carried as a string.
   discordId?: string | number
   avatarUrl?: string
   postCount?: number
@@ -137,8 +127,6 @@ export interface BBBMemberFull {
 }
 
 export type MemberLookupType = 'self' | 'id' | 'username' | 'discord'
-
-// ── Purchases / licenses / reviews ───────────────────────────────────────────
 
 export interface BBBPurchase {
   purchaseId?: number
@@ -171,13 +159,11 @@ export interface BBBReview {
   [key: string]: unknown
 }
 
-// ── The field-based "singular format" changelog ────────────────────────────
-
 export interface ChangelogSection {
   id: string
   heading: string
-  headingColor: string // rgb(...) string used in [COLOR=...]
-  headingSize: number // BBCode [SIZE=n]
+  headingColor: string
+  headingSize: number
   items: string[]
 }
 
@@ -197,11 +183,8 @@ export interface ChangelogTemplate {
   updatedAt: number
 }
 
-// ── Post payloads (renderer → local server → BBB) ───────────────────────────
-
 export interface FilePayload {
   name: string
-  /** base64-encoded file bytes (no data: prefix) */
   data: string
   size: number
 }
@@ -213,7 +196,7 @@ export interface PostResourceUpdatePayload {
   update?: {
     post: boolean
     title?: string
-    message: string // BBCode
+    message: string
   }
   dryRun?: boolean
 }
@@ -224,8 +207,6 @@ export interface PostAddonUpdatePayload {
   file: FilePayload
   dryRun?: boolean
 }
-
-// ── History / audit ─────────────────────────────────────────────────────────
 
 export interface UpdatePostRecord {
   id: string
@@ -242,8 +223,6 @@ export interface UpdatePostRecord {
   postedAt: number
 }
 
-// ── Connection / identity ────────────────────────────────────────────────────
-
 export interface BBBConnection {
   connected: boolean
   keyValid: boolean
@@ -259,8 +238,6 @@ export interface SessionUser {
   provider: string | null
 }
 
-// ── Generic API envelope ─────────────────────────────────────────────────────
-
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string; status?: number }
 
 export interface AppRuntimeInfo {
@@ -272,9 +249,6 @@ export interface AppRuntimeInfo {
   version: string
 }
 
-// Status of the user-supplied BuiltByBit OAuth application credentials. The
-// client secret is never exposed to the renderer — only whether it's set and,
-// for display, the (non-secret) Client ID and where it came from.
 export interface OAuthConfigStatus {
   configured: boolean
   clientId: string | null

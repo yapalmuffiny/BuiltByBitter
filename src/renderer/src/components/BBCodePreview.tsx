@@ -15,7 +15,6 @@ export function BBCodePreview({ bbcode }: { bbcode: string }): React.JSX.Element
   return (
     <div
       className="prose-preview rounded-lg border border-border bg-background/40 p-4 text-sm leading-relaxed"
-      // Rendered from a sanitised BBCode subset (see shared/bbcode.ts).
       dangerouslySetInnerHTML={{ __html: html }}
     />
   )

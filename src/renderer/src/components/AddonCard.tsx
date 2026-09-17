@@ -6,8 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useUI } from '@/lib/ui-context'
 
-// Only "Extra" addons are file-backed. "Support" addons and EULAs (e.g.
-// "attribution-free") have no version file, so they can't be updated.
 function isFileAddon(addon: BBBAddon): boolean {
   return (addon.type ?? '').trim().toLowerCase() === 'extra'
 }
@@ -31,7 +29,13 @@ export function AddonCard({
     setDropActive(false)
     if (!updatable) return
     const file = e.dataTransfer.files?.[0]
-    if (file) openComposer({ kind: 'addon', resource, addon, file })
+    if (file) {
+      openComposer({
+        kind: 'resource',
+        resource,
+        initialAddonFiles: { [addon.addonId]: file }
+      })
+    }
   }
 
   const disabled = addon.state === 'disabled'
@@ -85,7 +89,13 @@ export function AddonCard({
         <Button
           size="sm"
           variant="outline"
-          onClick={() => openComposer({ kind: 'addon', resource, addon })}
+          onClick={() =>
+            openComposer({
+              kind: 'resource',
+              resource,
+              addon
+            })
+          }
         >
           <Upload className="h-3.5 w-3.5" />
           Update

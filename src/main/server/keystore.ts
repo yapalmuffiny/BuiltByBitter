@@ -2,10 +2,6 @@ import { app, safeStorage } from 'electron'
 import { readFileSync, writeFileSync, existsSync, rmSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 
-// The BuiltByBit Ultimate API key is stored encrypted on disk via the OS
-// keychain (macOS Keychain through Electron safeStorage). It is NEVER written to
-// Postgres and NEVER sent to the renderer — only the local server reads it.
-
 function keyFilePath(): string {
   return join(app.getPath('userData'), 'secrets', 'bbb-api-key.bin')
 }
@@ -18,7 +14,7 @@ export function setApiKey(plain: string): void {
   const trimmed = plain.trim()
   if (!trimmed) throw new Error('API key is empty')
   if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('OS encryption (Keychain) is unavailable; cannot store the API key securely.')
+    throw new Error('OS encryption is unavailable; cannot store the API key securely.')
   }
   const encrypted = safeStorage.encryptString(trimmed)
   const path = keyFilePath()
@@ -42,12 +38,6 @@ export function clearApiKey(): void {
   if (existsSync(path)) rmSync(path)
 }
 
-// ── BuiltByBit OAuth application credentials ─────────────────────────────────
-// The login OAuth app's Client ID + Secret are user-supplied (this is a public
-// app — each user registers their own BBB OAuth application). They're stored
-// encrypted via the OS keychain, never written to Postgres, and the secret is
-// never returned to the renderer.
-
 export interface StoredOAuthCreds {
   clientId: string
   clientSecret: string
@@ -66,7 +56,7 @@ export function setOAuthCreds(clientId: string, clientSecret: string): void {
   const secret = clientSecret.trim()
   if (!id || !secret) throw new Error('Client ID and Client Secret are both required')
   if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('OS encryption (Keychain) is unavailable; cannot store OAuth credentials securely.')
+    throw new Error('OS encryption is unavailable; cannot store OAuth credentials securely.')
   }
   const encrypted = safeStorage.encryptString(JSON.stringify({ clientId: id, clientSecret: secret }))
   const path = oauthFilePath()

@@ -31,7 +31,6 @@ export function formatPrice(price?: {
 
 export function formatDate(ms?: number): string {
   if (!ms) return '—'
-  // BBB timestamps are often in seconds.
   const value = ms < 1e12 ? ms * 1000 : ms
   return new Date(value).toLocaleString(undefined, {
     year: 'numeric',
@@ -49,7 +48,6 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / Math.pow(1024, i)).toFixed(i ? 1 : 0)} ${units[i]}`
 }
 
-/** BBB sometimes returns http:// image URLs; upgrade so the CSP allows them. */
 export function toHttps(url?: string): string | undefined {
   if (!url) return undefined
   return url.startsWith('http://') ? 'https://' + url.slice('http://'.length) : url

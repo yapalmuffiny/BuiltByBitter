@@ -15,9 +15,6 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      // no-drag: the overlay covers the whole window (incl. the draggable
-      // sidebar/titlebar), so it must opt out of the window drag region or it
-      // swallows clicks meant for the dialog on top of it.
       'no-drag fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
       className
     )}
@@ -35,9 +32,6 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        // no-drag: the dialog is centered and overlaps the draggable sidebar on
-        // its left edge; without this, controls in that overlap (switches,
-        // buttons) are captured by the window drag region and can't be clicked.
         'no-drag fixed left-1/2 top-1/2 z-50 grid w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 gap-4 border border-border bg-popover p-6 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 rounded-xl max-h-[88vh] overflow-y-auto',
         className
       )}

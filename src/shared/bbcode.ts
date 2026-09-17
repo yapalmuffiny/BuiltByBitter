@@ -1,6 +1,5 @@
 import type { ChangelogFields, ChangelogSection } from './types'
 
-// House-style defaults, matching the reference changelog format.
 export const HOUSE_GREEN = 'rgb(97, 189, 109)'
 export const HOUSE_BROWN = 'rgb(124, 112, 107)'
 
@@ -25,7 +24,6 @@ export function defaultChangelogFields(signatureName = '', signatureStudio = '')
   }
 }
 
-/** A convenience id that works in both renderer and main. */
 export function cryptoId(): string {
   try {
     return globalThis.crypto?.randomUUID?.() ?? fallbackId()
@@ -33,24 +31,11 @@ export function cryptoId(): string {
     return fallbackId()
   }
 }
+
 function fallbackId(): string {
   return 'id-' + Math.random().toString(36).slice(2) + Date.now().toString(36)
 }
 
-/**
- * Build the BBCode body from the field-based changelog, reproducing the exact
- * "singular format" house style:
- *
- *   {intro}
- *
- *   [COLOR=rgb(97, 189, 109)][SIZE=6]What's New[/SIZE][/COLOR]
- *   [LIST]
- *   [*]item
- *   [/LIST]
- *   [COLOR=rgb(124, 112, 107)]{closing}[/COLOR]
- *
- *   - {name} @ {studio}
- */
 export function generateChangelogBBCode(fields: ChangelogFields): string {
   const blocks: string[] = []
 
@@ -87,8 +72,6 @@ export function generateChangelogBBCode(fields: ChangelogFields): string {
 
   return blocks.join('\n\n')
 }
-
-// ── Safe BBCode → HTML preview (a controlled subset) ─────────────────────────
 
 const SIZE_PX: Record<number, number> = { 1: 11, 2: 13, 3: 15, 4: 17, 5: 20, 6: 26, 7: 34 }
 
@@ -131,7 +114,6 @@ function inline(text: string): string {
   return s
 }
 
-/** Render a BBCode string to a safe HTML string for preview only. */
 export function renderBBCodeToHtml(bbcode: string): string {
   const escaped = escapeHtml(bbcode)
   const lines = escaped.split('\n')

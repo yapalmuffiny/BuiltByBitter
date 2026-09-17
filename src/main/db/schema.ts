@@ -1,10 +1,5 @@
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
 
-// Embedded SQLite (better-sqlite3). Dates are stored as integer epoch-ms, booleans
-// as 0/1, and JSON columns as TEXT — drizzle converts these transparently.
-
-// ── BetterAuth core tables (field/column names must match BetterAuth) ────────
-
 export const user = sqliteTable('user', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
@@ -61,8 +56,6 @@ export const verification = sqliteTable('verification', {
   updatedAt: integer('updatedAt', { mode: 'timestamp_ms' }).$defaultFn(() => new Date())
 })
 
-// ── App tables ───────────────────────────────────────────────────────────────
-
 export const bbbConnection = sqliteTable('bbb_connection', {
   id: text('id').primaryKey(),
   userId: text('user_id')
@@ -94,14 +87,14 @@ export const updatePost = sqliteTable('update_post', {
   userId: text('user_id')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
-  kind: text('kind').notNull(), // 'resource' | 'addon'
+  kind: text('kind').notNull(),
   targetId: integer('target_id').notNull(),
   targetTitle: text('target_title'),
   versionName: text('version_name').notNull(),
   message: text('message'),
   fileName: text('file_name').notNull(),
   fileSize: integer('file_size').notNull(),
-  status: text('status').notNull(), // 'success' | 'error' | 'dry-run'
+  status: text('status').notNull(),
   error: text('error'),
   dryRun: integer('dry_run', { mode: 'boolean' }).notNull().default(false),
   postedAt: integer('posted_at', { mode: 'timestamp_ms' })

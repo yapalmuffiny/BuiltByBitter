@@ -17,7 +17,7 @@ import type {
   UpdatePostRecord
 } from '@shared/types'
 
-const TOKEN_KEY = 'bbbitter.token'
+const TOKEN_KEY = 'builtbybitter_token'
 
 let runtimePromise: Promise<AppRuntimeInfo> | null = null
 
@@ -26,8 +26,6 @@ export function getRuntime(): Promise<AppRuntimeInfo> {
   return runtimePromise
 }
 
-// Replace the cached runtime after something changes it (e.g. saving OAuth
-// credentials restarts the local server and flips bbbOAuthConfigured).
 export function primeRuntime(runtime: AppRuntimeInfo): void {
   runtimePromise = Promise.resolve(runtime)
 }
@@ -82,8 +80,6 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return json as T
 }
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
-
 export async function getSessionUser(): Promise<SessionUser | null> {
   const token = getToken()
   if (!token) return null
@@ -104,8 +100,6 @@ export async function signOut(): Promise<void> {
   setToken(null)
 }
 
-// ── BBB connection ─────────────────────────────────────────────────────────────
-
 export function getStatus(): Promise<BBBConnection> {
   return apiFetch<BBBConnection>('/api/bbb/status')
 }
@@ -118,8 +112,6 @@ export function disconnectKey(): Promise<{ ok: boolean }> {
   return apiFetch('/api/bbb/disconnect', { method: 'POST' })
 }
 
-// ── BBB reads ───────────────────────────────────────────────────────────────────
-
 export async function getResources(): Promise<BBBResource[]> {
   const data = await apiFetch<{ resources: BBBResource[] }>('/api/bbb/resources')
   return data.resources ?? []
@@ -130,8 +122,6 @@ export async function getAddons(resourceIds?: number[]): Promise<BBBAddon[]> {
   const data = await apiFetch<{ addons: BBBAddon[] }>(`/api/bbb/addons${q}`)
   return data.addons ?? []
 }
-
-// ── Posts ───────────────────────────────────────────────────────────────────────
 
 export function postResourceUpdate(
   payload: PostResourceUpdatePayload
@@ -144,8 +134,6 @@ export function postAddonUpdate(
 ): Promise<{ ok: boolean; dryRun?: boolean }> {
   return apiFetch('/api/bbb/post-addon-update', { method: 'POST', body: JSON.stringify(payload) })
 }
-
-// ── Per-resource collections ────────────────────────────────────────────────────
 
 export async function getVersions(resourceIds?: number[]): Promise<BBBVersionFull[]> {
   const q = resourceIds?.length ? `?resourceIds=${resourceIds.join(',')}` : ''
@@ -177,8 +165,6 @@ export async function getLicenses(resourceIds?: number[]): Promise<BBBLicense[]>
   return data.licenses ?? []
 }
 
-// ── Member lookup (v1) ──────────────────────────────────────────────────────────
-
 export async function lookupMember(
   type: MemberLookupType,
   q?: string
@@ -188,8 +174,6 @@ export async function lookupMember(
   const data = await apiFetch<{ member: BBBMemberFull }>(`/api/bbb/member?${params.toString()}`)
   return data.member
 }
-
-// ── Templates ─────────────────────────────────────────────────────────────────
 
 export async function getTemplates(): Promise<ChangelogTemplate[]> {
   const data = await apiFetch<{ templates: ChangelogTemplate[] }>('/api/templates')
@@ -203,8 +187,6 @@ export function saveTemplate(t: ChangelogTemplate): Promise<{ ok: boolean; id: s
 export function deleteTemplate(id: string): Promise<{ ok: boolean }> {
   return apiFetch(`/api/templates/${id}`, { method: 'DELETE' })
 }
-
-// ── History ─────────────────────────────────────────────────────────────────────
 
 export async function getHistory(): Promise<UpdatePostRecord[]> {
   const data = await apiFetch<{ records: UpdatePostRecord[] }>('/api/history')

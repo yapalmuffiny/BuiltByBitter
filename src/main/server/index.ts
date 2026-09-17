@@ -27,7 +27,6 @@ type SessionResult = { session: { token: string }; user: { id: string; name: str
 
 type AppEnv = { Variables: { userId: string } }
 
-/** Extract better-auth's session-token cookie value from a Cookie header. */
 function extractSessionCookie(cookieHeader: string): string | null {
   for (const part of cookieHeader.split(';')) {
     const idx = part.indexOf('=')
@@ -46,15 +45,23 @@ export async function startServer(): Promise<RunningServer> {
 
   const app = new Hono()
 
-  // One-time relay for the external-browser OAuth flow: the browser callback
-  // stores the captured session token here keyed by a random linkId, and the
-  // Electron app polls /oauth-token to retrieve it. Loopback-only, short TTL.
   const pendingOAuth = new Map<string, { token: string | null; user: unknown; at: number }>()
 
   app.use(
     '/api/*',
     cors({
-      origin: (origin) => origin ?? '*',
+      origin: (origin) => {
+        if (!origin) return origin
+        if (
+          origin === url ||
+          origin === 'http://localhost:5173' ||
+          origin === 'http://127.0.0.1:5173' ||
+          origin === 'app://.'
+        ) {
+          return origin
+        }
+        return null
+      },
       allowHeaders: ['Authorization', 'Content-Type'],
       allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
       maxAge: 600
@@ -63,10 +70,8 @@ export async function startServer(): Promise<RunningServer> {
 
   app.get('/health', (c) => c.json({ ok: true }))
 
-  // ── BetterAuth (session + OAuth) ───────────────────────────────────────────
   app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw))
 
-  // ── OAuth bridge windows (same-origin as the server) ───────────────────────
   app.get('/oauth-start', (c) => {
     const provider = c.req.query('provider') === 'discord' ? 'discord' : 'builtbybit'
     const linkId = c.req.query('linkId') ?? ''
@@ -77,7 +82,6 @@ export async function startServer(): Promise<RunningServer> {
 (async () => {
   try {
     const provider = ${JSON.stringify(provider)};
-    // better-auth 1.7+ routes generic OAuth providers through /sign-in/social.
     const endpoint = '/api/auth/sign-in/social';
     const body = { provider: provider, callbackURL: ${JSON.stringify(callbackURL)} };
     const res = await fetch(endpoint, {
@@ -90,13 +94,9 @@ export async function startServer(): Promise<RunningServer> {
     let data = null;
     try { data = text ? JSON.parse(text) : null; } catch (_) {}
     if (res.ok && data && data.url) { window.location.href = data.url; return; }
-    const hint = (res.status >= 500)
-      ? 'The local database may be unreachable. Make sure Postgres is running, then try again.'
-      : '';
     document.body.innerHTML = '<div style="max-width:420px;text-align:center;padding:24px">' +
       '<div style="font-size:15px;font-weight:600;margin-bottom:8px">Could not start sign-in</div>' +
       '<div style="font-size:13px;color:#9aa4b2">HTTP ' + res.status + (data && data.message ? (' — ' + data.message) : (text ? (' — ' + text.slice(0,200)) : '')) + '</div>' +
-      (hint ? '<div style="font-size:12px;color:#e0b978;margin-top:10px">' + hint + '</div>' : '') +
       '</div>';
   } catch (e) {
     document.body.innerHTML = '<div style="padding:24px;text-align:center;font-size:13px;color:#9aa4b2">OAuth start failed: ' + (e && e.message) + '</div>';
@@ -110,93 +110,92 @@ export async function startServer(): Promise<RunningServer> {
     const linkId = c.req.query('linkId') ?? ''
     const session = (await auth.api.getSession({ headers: c.req.raw.headers })) as SessionResult
     const user = session?.user ?? null
-    // The bearer plugin expects better-auth's own signed session-cookie value
-    // (a reconstructed raw token is NOT accepted), so hand back the real cookie.
     const token = extractSessionCookie(c.req.header('cookie') ?? '') ?? session?.session.token ?? null
     if (linkId) pendingOAuth.set(linkId, { token, user, at: Date.now() })
     const payload = JSON.stringify({ token, user })
     const ok = Boolean(token)
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>${ok ? 'Signed in' : 'Sign-in failed'}</title>
 <style>body{background:#0b0d10;color:#e5e7eb;font-family:-apple-system,system-ui,sans-serif;display:flex;height:100vh;margin:0;align-items:center;justify-content:center;text-align:center}
-.card{max-width:360px;padding:28px}.badge{width:54px;height:54px;border-radius:16px;background:${ok ? 'rgba(52,211,153,.15)' : 'rgba(248,113,113,.15)'};display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:26px}
-h1{font-size:17px;margin:0 0 6px}p{font-size:13px;color:#9aa4b2;margin:0}</style>
-</head><body><div class="card"><div class="badge">${ok ? '✓' : '⚠︎'}</div>
-<h1>${ok ? 'Signed in to BuiltByBitter' : 'Sign-in didn’t complete'}</h1>
-<p>${ok ? 'You can close this tab and return to the app.' : 'Please return to the app and try again.'}</p></div>
-<script>window.__AUTH_RESULT__ = ${payload};setTimeout(function(){window.close()},1200);</script></body></html>`
+.card{background:#13171f;border:1px solid #222938;border-radius:14px;padding:28px 36px;max-width:380px}
+h1{font-size:17px;margin:0 0 8px;font-weight:600}
+p{font-size:13px;color:#9aa4b2;margin:0 0 16px;line-height:1.4}
+.badge{display:inline-block;padding:4px 10px;border-radius:6px;font-size:12px;background:#1a202c;color:#e5e7eb}
+</style></head><body>
+<div class="card">
+  <h1>${ok ? 'Signed in to BuiltByBitter' : 'Sign-in incomplete'}</h1>
+  <p>${ok ? 'You can return to the BuiltByBitter desktop app now.' : 'Something went wrong completing authentication. You can close this tab and try again.'}</p>
+  <div class="badge">${ok ? 'Authenticated' : 'Failed'}</div>
+</div>
+<script>
+window.__authPayload = ${payload};
+</script></body></html>`
     return c.html(html)
   })
 
-  // Polled by the Electron app to retrieve the token captured by the browser
-  // callback for its linkId. Single-use; entries expire after 5 minutes.
   app.get('/oauth-token', (c) => {
     const linkId = c.req.query('linkId') ?? ''
-    const now = Date.now()
-    for (const [k, v] of pendingOAuth) if (now - v.at > 5 * 60 * 1000) pendingOAuth.delete(k)
-    const entry = linkId ? pendingOAuth.get(linkId) : undefined
-    if (entry) {
-      pendingOAuth.delete(linkId)
-      return c.json({ token: entry.token, user: entry.user })
-    }
-    return c.json({ pending: true })
+    const hit = pendingOAuth.get(linkId)
+    if (!hit) return c.json({ pending: true }, 404)
+    pendingOAuth.delete(linkId)
+    return c.json({ token: hit.token, user: hit.user })
   })
-
-  // ── Session guard for everything under /api (except /api/auth) ─────────────
-  async function requireSession(headers: Headers): Promise<SessionResult> {
-    return (await auth.api.getSession({ headers })) as SessionResult
-  }
 
   const api = new Hono<AppEnv>()
 
-  api.use('*', async (c, next) => {
-    const session = await requireSession(c.req.raw.headers)
-    if (!session) return c.json({ error: 'Not authenticated' }, 401)
+  api.use('/*', async (c, next) => {
+    if (c.req.path.startsWith('/api/auth')) return next()
+    const session = (await auth.api.getSession({ headers: c.req.raw.headers })) as SessionResult
+    if (!session?.user?.id) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
     c.set('userId', session.user.id)
-    await next()
+    return next()
   })
 
   function requireKey(): string {
     const key = getApiKey()
-    if (!key) throw new BBBError('BuiltByBit API key not connected', 400)
+    if (!key) throw new BBBError('No BuiltByBit API key configured. Visit Settings to add one.', 400)
     return key
   }
 
-  function parseIds(raw?: string): number[] | undefined {
-    if (!raw) return undefined
-    const ids = raw
+  function parseIds(val?: string): number[] | undefined {
+    if (!val) return undefined
+    const list = val
       .split(',')
       .map((s) => Number(s.trim()))
-      .filter((n) => Number.isFinite(n))
-    return ids.length ? ids : undefined
+      .filter((n) => Number.isFinite(n) && n > 0)
+    return list.length ? list : undefined
   }
 
-  // ── BBB connection ─────────────────────────────────────────────────────────
   api.get('/bbb/status', async (c) => {
     const uid = c.get('userId')
-    const rows = await db.select().from(bbbConnection).where(eq(bbbConnection.userId, uid)).limit(1)
-    const row = rows[0]
+    const hasKey = hasApiKey()
+    const row = await db.select().from(bbbConnection).where(eq(bbbConnection.userId, uid)).limit(1)
+    const conn = row[0]
     return c.json({
-      connected: hasApiKey(),
-      keyValid: row?.keyValid ?? false,
-      member: row
-        ? { memberId: row.memberId ?? undefined, username: row.username ?? undefined, avatarUrl: row.avatarUrl ?? undefined }
-        : undefined,
-      connectedAt: row ? row.connectedAt.getTime() : undefined
+      connected: Boolean(hasKey && conn?.keyValid),
+      hasKey,
+      member: conn
+        ? {
+            memberId: conn.memberId ?? undefined,
+            username: conn.username ?? undefined,
+            avatarUrl: conn.avatarUrl ?? undefined
+          }
+        : null,
+      connectedAt: conn?.connectedAt ? conn.connectedAt.getTime() : null
     })
   })
 
   api.post('/bbb/connect', async (c) => {
     const uid = c.get('userId')
-    const body = (await c.req.json().catch(() => ({}))) as { apiKey?: string }
-    const apiKey = body.apiKey?.trim()
-    if (!apiKey) return c.json({ error: 'Missing apiKey' }, 400)
+    const body = (await c.req.json()) as { apiKey?: string }
+    const key = body.apiKey?.trim()
+    if (!key) return c.json({ error: 'API key required' }, 400)
 
     try {
-      const member = await bbb.getSelf(apiKey)
-      setApiKey(apiKey)
-      await db
-        .delete(bbbConnection)
-        .where(eq(bbbConnection.userId, uid))
+      const member = await bbb.getSelf(key)
+      setApiKey(key)
+      await db.delete(bbbConnection).where(eq(bbbConnection.userId, uid))
       await db.insert(bbbConnection).values({
         id: cryptoId(),
         userId: uid,
@@ -221,44 +220,48 @@ h1{font-size:17px;margin:0 0 6px}p{font-size:13px;color:#9aa4b2;margin:0}</style
     return c.json({ ok: true })
   })
 
-  // ── BBB reads ──────────────────────────────────────────────────────────────
   api.get('/bbb/resources', async (c) => {
     const key = requireKey()
     const resources = await bbb.getResources(key, parseIds(c.req.query('resourceIds')))
     return c.json({ resources })
   })
+
   api.get('/bbb/addons', async (c) => {
     const key = requireKey()
     const addons = await bbb.getAddons(key, parseIds(c.req.query('resourceIds')))
     return c.json({ addons })
   })
+
   api.get('/bbb/versions', async (c) => {
     const key = requireKey()
     const versions = await bbb.getVersions(key, parseIds(c.req.query('resourceIds')))
     return c.json({ versions })
   })
+
   api.get('/bbb/updates', async (c) => {
     const key = requireKey()
     const updates = await bbb.getUpdates(key, parseIds(c.req.query('resourceIds')))
     return c.json({ updates })
   })
+
   api.get('/bbb/purchases', async (c) => {
     const key = requireKey()
     const purchases = await bbb.getPurchases(key, parseIds(c.req.query('resourceIds')))
     return c.json({ purchases })
   })
+
   api.get('/bbb/licenses', async (c) => {
     const key = requireKey()
     const licenses = await bbb.getLicenses(key, parseIds(c.req.query('resourceIds')))
     return c.json({ licenses })
   })
+
   api.get('/bbb/reviews', async (c) => {
     const key = requireKey()
     const reviews = await bbb.getReviews(key, parseIds(c.req.query('resourceIds')))
     return c.json({ reviews })
   })
 
-  // ── Member lookup (v1) ───────────────────────────────────────────────────────
   api.get('/bbb/member', async (c) => {
     const key = requireKey()
     const type = (c.req.query('type') ?? 'self') as
@@ -279,7 +282,6 @@ h1{font-size:17px;margin:0 0 6px}p{font-size:13px;color:#9aa4b2;margin:0}</style
     }
   })
 
-  // ── Post a resource version + changelog ────────────────────────────────────
   api.post('/bbb/post-update', async (c) => {
     const uid = c.get('userId')
     const payload = (await c.req.json()) as PostResourceUpdatePayload
@@ -342,7 +344,6 @@ h1{font-size:17px;margin:0 0 6px}p{font-size:13px;color:#9aa4b2;margin:0}</style
     }
   }
 
-  // ── Templates ────────────────────────────────────────────────────────────────
   api.get('/templates', async (c) => {
     const uid = c.get('userId')
     const rows = await db
@@ -394,7 +395,6 @@ h1{font-size:17px;margin:0 0 6px}p{font-size:13px;color:#9aa4b2;margin:0}</style
     return c.json({ ok: true })
   })
 
-  // ── History ──────────────────────────────────────────────────────────────────
   api.get('/history', async (c) => {
     const uid = c.get('userId')
     const rows = await db
@@ -456,8 +456,6 @@ h1{font-size:17px;margin:0 0 6px}p{font-size:13px;color:#9aa4b2;margin:0}</style
     stop: () =>
       new Promise<void>((resolve) => {
         server.close(() => resolve())
-        // Drop idle keep-alive sockets so a restart (e.g. after OAuth creds
-        // change) doesn't stall waiting for them to time out on their own.
         ;(server as unknown as { closeAllConnections?: () => void }).closeAllConnections?.()
       })
   }

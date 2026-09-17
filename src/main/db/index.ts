@@ -7,9 +7,6 @@ import { join } from 'node:path'
 import { mkdirSync } from 'node:fs'
 import { schema } from './schema'
 
-// Embedded, per-user SQLite database. The file lives in the OS app-data dir so a
-// downloaded copy of the app works with zero setup — no external Postgres.
-
 type DB = BetterSQLite3Database<typeof schema>
 
 let instance: DB | null = null
@@ -21,16 +18,11 @@ function dbFilePath(): string {
 }
 
 function migrationsFolder(): string {
-  // Bundled next to the app via electron-builder `extraResources` in production.
   return app.isPackaged
     ? join(process.resourcesPath, 'drizzle')
     : join(process.cwd(), 'drizzle')
 }
 
-// Open the database, enable FK enforcement, and apply migrations. Idempotent —
-// safe to call at startup and lazily. Must run after app.whenReady (needs the
-// userData path), which is why `db` below is a lazy proxy rather than opened at
-// import time.
 export function initDatabase(): DB {
   if (instance) return instance
   const sqlite = new Database(dbFilePath())
@@ -42,7 +34,6 @@ export function initDatabase(): DB {
   return instance
 }
 
-// Lazy handle: any use initializes the DB on first access (after app-ready).
 export const db: DB = new Proxy({} as DB, {
   get(_target, prop, receiver) {
     const d = instance ?? initDatabase()

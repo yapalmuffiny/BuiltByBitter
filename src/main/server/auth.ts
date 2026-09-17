@@ -24,14 +24,9 @@ interface OAuthUserInfo {
   [key: string]: unknown
 }
 
-// Identity lookup for the BBB generic OAuth provider. BBB's OAuth scopes/userinfo
-// aren't publicly documented, so we defensively fetch the member "self" endpoint
-// with the access token and synthesise a stable email if none is returned.
 async function bbbGetUserInfo(tokens: { accessToken?: string }): Promise<OAuthUserInfo | null> {
   const accessToken = tokens.accessToken
   if (!accessToken) return null
-  // OAuth tokens only work against v2 members/self (v1 is privilege-restricted).
-  // The member object is nested under data.self.
   try {
     const res = await fetch('https://api.builtbybit.com/v2/members/self', {
       headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' }
@@ -59,9 +54,6 @@ async function bbbGetUserInfo(tokens: { accessToken?: string }): Promise<OAuthUs
 }
 
 export function createAuth() {
-  // Prefer user-supplied credentials from the keychain (public-app flow); fall
-  // back to .env for local development. The `.env.example` placeholder contains
-  // "xxxx", so env creds are only trusted when they've actually been filled in.
   const stored = getOAuthCreds()
   let bbbClientId: string | undefined
   let bbbClientSecret: string | undefined
@@ -82,9 +74,6 @@ export function createAuth() {
   const discordClientSecret = process.env.DISCORD_CLIENT_SECRET?.trim()
   const discordConfigured = Boolean(discordClientId && discordClientSecret)
 
-  // BBB rejects the authorize request ("must request at least one scope") unless
-  // a scope is sent, and `members.self` is the ONLY OAuth2-allowed scope, so it's
-  // the default. (The env var only exists to override it in dev.)
   const bbbScopes = (process.env.BBB_OAUTH_SCOPES ?? 'members.self')
     .split(/[ ,]+/)
     .map((s) => s.trim())
@@ -98,10 +87,6 @@ export function createAuth() {
           clientSecret: bbbClientSecret!,
           authorizationUrl: 'https://builtbybit.com/account/external/authorize',
           tokenUrl: 'https://api.builtbybit.com/oauth2/token',
-          // BBB wants HTTP Basic client auth with the RAW secret. better-auth's
-          // built-in basic auth form-url-encodes credentials (RFC 6749 §2.3.1),
-          // turning the "/" in the secret into %2F, which BBB rejects. So set a
-          // raw Basic header ourselves.
           tokenEndpointAuth: {
             method: 'custom' as const,
             customizeRequest: async ({ headers }: { headers: Record<string, string> }) => {
@@ -133,7 +118,7 @@ export function createAuth() {
       ? { discord: { clientId: discordClientId!, clientSecret: discordClientSecret! } }
       : {},
     session: {
-      expiresIn: 60 * 60 * 24 * 30, // 30 days
+      expiresIn: 60 * 60 * 24 * 30,
       updateAge: 60 * 60 * 24
     },
     plugins: [bearer(), genericOAuth({ config: genericProviders })]

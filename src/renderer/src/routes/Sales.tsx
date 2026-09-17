@@ -11,11 +11,6 @@ function num(v: unknown): number | undefined {
   return typeof v === 'number' ? v : undefined
 }
 
-/**
- * Read the first numeric value among the given (camelCased) keys. The numeric
- * guard means a differently-typed field (e.g. a boolean) is skipped rather than
- * rendered as a bogus value.
- */
 function firstNum(obj: Record<string, unknown>, keys: string[]): number | undefined {
   for (const k of keys) {
     const v = num(obj[k])
@@ -24,7 +19,6 @@ function firstNum(obj: Record<string, unknown>, keys: string[]): number | undefi
   return undefined
 }
 
-/** Pull a non-empty string property off a nested object (e.g. resource.title). */
 function nestedStr(v: unknown, key: string): string | undefined {
   if (v && typeof v === 'object') {
     const s = (v as Record<string, unknown>)[key]
@@ -33,9 +27,6 @@ function nestedStr(v: unknown, key: string): string | undefined {
   return undefined
 }
 
-// Field names per BuiltByBit's OpenAPI Purchase/License models: the resource is
-// identified by `content_id` (contentType says whether it's a resource/addon),
-// the buyer by `buyer_id`, and rows may embed nested `resource`/`buyer` objects.
 const RESOURCE_ID_KEYS = ['contentId', 'resourceId']
 const BUYER_ID_KEYS = ['buyerId', 'purchaserId']
 const PURCHASE_DATE_KEYS = ['createdAt', 'validatedAt']
@@ -150,8 +141,6 @@ export function Sales(): React.JSX.Element {
                 const holderName = nestedStr(l.buyer, 'username')
                 const holderId = firstNum(l, BUYER_ID_KEYS)
                 const activeBool = typeof l.active === 'boolean' ? l.active : undefined
-                // Per the model, `active` is authoritative only for permanent
-                // licenses; temporary ones are active while endDate is in the future.
                 const active =
                   l.permanent === true
                     ? activeBool

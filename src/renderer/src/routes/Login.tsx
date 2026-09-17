@@ -101,9 +101,6 @@ export function Login(): React.JSX.Element {
   )
 }
 
-// Shown when no BuiltByBit OAuth application is configured yet. Each user of this
-// public app registers their own BBB OAuth app and pastes its credentials here;
-// they're stored encrypted in the OS keychain by the main process.
 function OAuthSetup({
   authPort,
   onSave

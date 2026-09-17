@@ -54,7 +54,6 @@ export function Settings(): React.JSX.Element {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-6">
-      {/* BuiltByBit connection */}
       <Card className="mb-4">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -118,10 +117,8 @@ export function Settings(): React.JSX.Element {
         </CardContent>
       </Card>
 
-      {/* BuiltByBit OAuth application */}
       <OAuthCard />
 
-      {/* Account */}
       <Card className="mb-4">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -148,7 +145,6 @@ export function Settings(): React.JSX.Element {
         </CardContent>
       </Card>
 
-      {/* About */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -173,9 +169,6 @@ export function Settings(): React.JSX.Element {
   )
 }
 
-// View / change / remove the user-supplied BuiltByBit OAuth application. The
-// secret is write-only from the renderer's perspective — only its presence and
-// the Client ID come back from the main process.
 function OAuthCard(): React.JSX.Element {
   const { runtime, configureOAuth, clearOAuthConfig } = useAuth()
   const { toast } = useToast()
