@@ -1,4 +1,5 @@
 import { Wrapper, Token, TokenType } from '@builtbybit/api-wrapper'
+import * as BuiltByBitApi from 'built_by_bit_api'
 import type {
   BBBAddon,
   BBBMember,
@@ -13,6 +14,14 @@ import type {
   PostAddonUpdatePayload,
   PostResourceUpdatePayload
 } from '@shared/types'
+
+const ApiClient =
+  BuiltByBitApi.ApiClient ??
+  (BuiltByBitApi as unknown as { default: { ApiClient: typeof BuiltByBitApi.ApiClient } }).default?.ApiClient
+const ResourcesCreatorApi =
+  BuiltByBitApi.ResourcesCreatorApi ??
+  (BuiltByBitApi as unknown as { default: { ResourcesCreatorApi: typeof BuiltByBitApi.ResourcesCreatorApi } }).default
+    ?.ResourcesCreatorApi
 
 function toCamel(key: string): string {
   const camel = key.replace(/_([a-z0-9])/gi, (_m, c: string) => c.toUpperCase())
@@ -40,8 +49,6 @@ export class BBBError extends Error {
   }
 }
 
-const BBB_BASE = 'https://api.builtbybit.com'
-
 function createWrapper(apiKey: string): InstanceType<typeof Wrapper> {
   const wrapper = new Wrapper()
   const token = new Token(TokenType.PRIVATE, apiKey)
@@ -49,18 +56,24 @@ function createWrapper(apiKey: string): InstanceType<typeof Wrapper> {
   return wrapper
 }
 
-function queryString(params: Record<string, string | number | undefined>): string {
-  const search = new URLSearchParams()
-  for (const [k, v] of Object.entries(params)) {
-    if (v != null && v !== '') search.set(k, String(v))
-  }
-  const str = search.toString()
-  return str ? `?${str}` : ''
+function createV2CreatorApi(apiKey: string): BuiltByBitApi.ResourcesCreatorApi {
+  const client = new ApiClient()
+  const token = client.authentications.token
+  token.apiKey = apiKey
+  token.apiKeyPrefix = 'Private'
+  client.defaultHeaders['Authorization'] = `Private ${apiKey}`
+  return new ResourcesCreatorApi(client)
 }
 
-function idsParam(resourceIds?: number[]): string {
-  if (!resourceIds || !resourceIds.length) return ''
-  return queryString({ resource_ids: resourceIds.join(',') })
+function promisifyApi<T>(
+  fn: (cb: (error: Error | null, data: T, response: unknown) => void) => void
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    fn((error, data) => {
+      if (error) reject(error)
+      else resolve(data)
+    })
+  })
 }
 
 async function execute<T>(fn: () => Promise<T>): Promise<T> {
@@ -70,9 +83,29 @@ async function execute<T>(fn: () => Promise<T>): Promise<T> {
   } catch (err: unknown) {
     if (err instanceof BBBError) throw err
     if (err && typeof err === 'object') {
-      const response = (err as { response?: { status?: number; data?: { error?: { message?: string } } } }).response
+      const response = (
+        err as {
+          response?: {
+            status?: number
+            body?: { error?: { message?: string } }
+            data?: { error?: { message?: string } }
+            text?: string
+          }
+        }
+      ).response
       if (response) {
-        const message = response.data?.error?.message ?? 'BuiltByBit API error'
+        let message =
+          response.body?.error?.message ??
+          response.data?.error?.message ??
+          'BuiltByBit API error'
+        if (message === 'BuiltByBit API error' && response.text) {
+          try {
+            const parsed = JSON.parse(response.text) as { error?: { message?: string } }
+            if (parsed.error?.message) message = parsed.error.message
+          } catch {
+            /* ignore */
+          }
+        }
         throw new BBBError(message, response.status ?? 500)
       }
       const message = (err as { message?: string }).message
@@ -80,28 +113,6 @@ async function execute<T>(fn: () => Promise<T>): Promise<T> {
     }
     throw new BBBError('BuiltByBit request failed')
   }
-}
-
-interface ResourcesPayload {
-  resources?: BBBResource[]
-}
-interface AddonsPayload {
-  addons?: BBBAddon[]
-}
-interface VersionsPayload {
-  versions?: BBBVersion[]
-}
-interface UpdatesPayload {
-  updates?: BBBUpdate[]
-}
-interface PurchasesPayload {
-  purchases?: BBBPurchase[]
-}
-interface LicensesPayload {
-  licenses?: BBBLicense[]
-}
-interface ReviewsPayload {
-  reviews?: BBBReview[]
 }
 
 export const bbb = {
@@ -145,71 +156,92 @@ export const bbb = {
 
   async getResources(apiKey: string, resourceIds?: number[]): Promise<BBBResource[]> {
     return execute(async () => {
-      const wrapper = createWrapper(apiKey)
-      const res = (await wrapper.http().get(`${BBB_BASE}/v2/resources/creator/resources${idsParam(resourceIds)}`)) as
-        | ResourcesPayload
-        | BBBResource[]
-      return Array.isArray(res) ? res : (res?.resources ?? [])
+      const api = createV2CreatorApi(apiKey)
+      const res = await promisifyApi<{ data?: { resources?: BBBResource[] } }>((cb) =>
+        api.getV2ResourcesCreatorResources(
+          resourceIds && resourceIds.length ? { resourceIds } : {},
+          cb
+        )
+      )
+      return res?.data?.resources ?? []
     })
   },
 
   async getAddons(apiKey: string, resourceIds?: number[]): Promise<BBBAddon[]> {
     return execute(async () => {
-      const wrapper = createWrapper(apiKey)
-      const res = (await wrapper.http().get(`${BBB_BASE}/v2/resources/creator/addons${idsParam(resourceIds)}`)) as
-        | AddonsPayload
-        | BBBAddon[]
-      return Array.isArray(res) ? res : (res?.addons ?? [])
+      const api = createV2CreatorApi(apiKey)
+      const res = await promisifyApi<{ data?: { addons?: BBBAddon[] } }>((cb) =>
+        api.getV2ResourcesCreatorAddons(
+          resourceIds && resourceIds.length ? { resourceIds } : {},
+          cb
+        )
+      )
+      return res?.data?.addons ?? []
     })
   },
 
   async getVersions(apiKey: string, resourceIds?: number[]): Promise<BBBVersion[]> {
     return execute(async () => {
-      const wrapper = createWrapper(apiKey)
-      const res = (await wrapper.http().get(`${BBB_BASE}/v2/resources/creator/versions${idsParam(resourceIds)}`)) as
-        | VersionsPayload
-        | BBBVersion[]
-      return Array.isArray(res) ? res : (res?.versions ?? [])
+      const api = createV2CreatorApi(apiKey)
+      const res = await promisifyApi<{ data?: { versions?: BBBVersion[] } }>((cb) =>
+        api.getV2ResourcesCreatorVersions(
+          resourceIds && resourceIds.length ? { resourceIds } : {},
+          cb
+        )
+      )
+      return res?.data?.versions ?? []
     })
   },
 
   async getUpdates(apiKey: string, resourceIds?: number[]): Promise<BBBUpdate[]> {
     return execute(async () => {
-      const wrapper = createWrapper(apiKey)
-      const res = (await wrapper.http().get(`${BBB_BASE}/v2/resources/creator/updates${idsParam(resourceIds)}`)) as
-        | UpdatesPayload
-        | BBBUpdate[]
-      return Array.isArray(res) ? res : (res?.updates ?? [])
+      const api = createV2CreatorApi(apiKey)
+      const res = await promisifyApi<{ data?: { updates?: BBBUpdate[] } }>((cb) =>
+        api.getV2ResourcesCreatorUpdates(
+          resourceIds && resourceIds.length ? { resourceIds } : {},
+          cb
+        )
+      )
+      return res?.data?.updates ?? []
     })
   },
 
   async getPurchases(apiKey: string, resourceIds?: number[]): Promise<BBBPurchase[]> {
     return execute(async () => {
-      const wrapper = createWrapper(apiKey)
-      const res = (await wrapper.http().get(`${BBB_BASE}/v2/resources/creator/purchases${idsParam(resourceIds)}`)) as
-        | PurchasesPayload
-        | BBBPurchase[]
-      return Array.isArray(res) ? res : (res?.purchases ?? [])
+      const api = createV2CreatorApi(apiKey)
+      const res = await promisifyApi<{ data?: { purchases?: BBBPurchase[] } }>((cb) =>
+        api.getV2ResourcesCreatorPurchases(
+          resourceIds && resourceIds.length ? { resourceIds } : {},
+          cb
+        )
+      )
+      return res?.data?.purchases ?? []
     })
   },
 
   async getLicenses(apiKey: string, resourceIds?: number[]): Promise<BBBLicense[]> {
     return execute(async () => {
-      const wrapper = createWrapper(apiKey)
-      const res = (await wrapper.http().get(`${BBB_BASE}/v2/resources/creator/licenses${idsParam(resourceIds)}`)) as
-        | LicensesPayload
-        | BBBLicense[]
-      return Array.isArray(res) ? res : (res?.licenses ?? [])
+      const api = createV2CreatorApi(apiKey)
+      const res = await promisifyApi<{ data?: { licenses?: BBBLicense[] } }>((cb) =>
+        api.getV2ResourcesCreatorLicenses(
+          resourceIds && resourceIds.length ? { resourceIds } : {},
+          cb
+        )
+      )
+      return res?.data?.licenses ?? []
     })
   },
 
   async getReviews(apiKey: string, resourceIds?: number[]): Promise<BBBReview[]> {
     return execute(async () => {
-      const wrapper = createWrapper(apiKey)
-      const res = (await wrapper.http().get(`${BBB_BASE}/v2/resources/creator/reviews${idsParam(resourceIds)}`)) as
-        | ReviewsPayload
-        | BBBReview[]
-      return Array.isArray(res) ? res : (res?.reviews ?? [])
+      const api = createV2CreatorApi(apiKey)
+      const res = await promisifyApi<{ data?: { reviews?: BBBReview[] } }>((cb) =>
+        api.getV2ResourcesCreatorReviews(
+          resourceIds && resourceIds.length ? { resourceIds } : {},
+          cb
+        )
+      )
+      return res?.data?.reviews ?? []
     })
   },
 
@@ -218,7 +250,7 @@ export const bbb = {
     payload: PostResourceUpdatePayload
   ): Promise<unknown> {
     return execute(async () => {
-      const wrapper = createWrapper(apiKey)
+      const api = createV2CreatorApi(apiKey)
       const body: Record<string, unknown> = {
         resource_id: payload.resourceId,
         version_name: payload.versionName,
@@ -231,18 +263,29 @@ export const bbb = {
           message: payload.update.message
         }
       }
-      return wrapper.http().post(`${BBB_BASE}/v2/resources/creator/update`, body)
+      return promisifyApi((cb) =>
+        api.postV2ResourcesCreatorUpdate(
+          { postV2ResourcesCreatorUpdateRequest: body },
+          cb
+        )
+      )
     })
   },
 
   async postAddonUpdate(apiKey: string, payload: PostAddonUpdatePayload): Promise<unknown> {
     return execute(async () => {
-      const wrapper = createWrapper(apiKey)
-      return wrapper.http().post(`${BBB_BASE}/v2/resources/creator/addons/update`, {
+      const api = createV2CreatorApi(apiKey)
+      const body = {
         addon_id: payload.addonId,
         version_name: payload.versionName,
         file: { name: payload.file.name, data: payload.file.data }
-      })
+      }
+      return promisifyApi((cb) =>
+        api.postV2ResourcesCreatorAddonsUpdate(
+          { postV2ResourcesCreatorAddonsUpdateRequest: body },
+          cb
+        )
+      )
     })
   }
 }
